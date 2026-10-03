@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
-import { normalizeTag } from '../lib/tags'
+import { normalizeTag, sortTags } from '../lib/tags'
 
 export default function Onboarding() {
   const { session, refreshProfile } = useAuth()
@@ -25,8 +25,8 @@ export default function Onboarding() {
       setErr("That token didn't work. Try making a new one, or type your classes instead.")
       return
     }
-    setTaking(data.taking.map(tag => ({ tag, on: true })))
-    setTook(data.took.map(tag => ({ tag, on: true })))
+    setTaking(sortTags(data.taking).map(tag => ({ tag, on: true })))
+    setTook(sortTags(data.took).map(tag => ({ tag, on: true })))
     setStep('review')
   }
 

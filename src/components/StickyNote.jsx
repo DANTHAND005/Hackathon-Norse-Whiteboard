@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-const PAPER = ['#FFF1B8', '#FFD9D2', '#D6E8F2', '#D9EFD9', '#E8DEF5']
+const PAPER = ['#F6EC9E', '#BFE1F5', '#C9EBB5', '#92D6C6', '#F8CFA0', '#DDCCF1']
+const PIN = ['#F2B01E', '#B57BD6', '#D2452C', '#1FA5B5', '#E0302B', '#3B4BD6']
 const AVATAR = ['#1D2B42', '#2F6F8F', '#8A4B2D', '#1F8A5B']
 
 // Same note always gets the same colour and tilt (between -1.5 and 1.5 degrees).
@@ -14,22 +15,23 @@ export function fmtWhen(iso) {
   return `${d.getMonth() + 1}/${d.getDate()} ${time}`
 }
 
-function People({ ids, names }) {
+function People({ ids, names, onPerson }) {
   return (
     <span className="avatars sm">
       {ids.slice(0, 4).map((id, i) => (
-        <span key={id} className="avatar" style={{ background: AVATAR[i % AVATAR.length] }} title={names[id]}>{initials(names[id])}</span>
+        <button key={id} type="button" className="avatar" style={{ background: AVATAR[i % AVATAR.length] }} title={names[id]}
+          aria-label={`About ${names[id] || 'this person'}`} onClick={() => onPerson?.(id)}>{initials(names[id])}</button>
       ))}
       {ids.length > 4 && <span className="avatar more">+{ids.length - 4}</span>}
     </span>
   )
 }
 
-export default function StickyNote({ note, me, names, tookIt, justAdded, onJoin, onLeave, onEdit, onRemove }) {
+export default function StickyNote({ note, me, names, tookIt, justAdded, onJoin, onLeave, onEdit, onRemove, onPerson }) {
   const navigate = useNavigate()
   const [menu, setMenu] = useState(false)
   const h = hash(note.id)
-  const style = { '--paper': PAPER[h % PAPER.length], '--tilt': `${((h % 31) - 15) / 10}deg` }
+  const style = { '--paper': PAPER[h % PAPER.length], '--pin': PIN[(h >> 3) % PIN.length], '--tilt': `${((h % 31) - 15) / 10}deg` }
   const badge = { meetup: 'Meetup', live: 'Live board', saved: 'Saved board' }[note.kind]
 
   const mine = note.kind === 'meetup' && note.creator === me
@@ -61,11 +63,11 @@ export default function StickyNote({ note, me, names, tookIt, justAdded, onJoin,
         <>
           <p className="meta">{[note.building, note.room].filter(Boolean).join(' ')}</p>
           <p className="meta">{fmtWhen(note.startsAt)}</p>
-          <p className="meta count">{note.going.length}/{note.max} participants <People ids={note.going} names={names} /></p>
+          <p className="meta count">{note.going.length}/{note.max} participants <People ids={note.going} names={names} onPerson={id => onPerson?.(id, note)} /></p>
         </>
       )}
       {note.kind === 'live' && (
-        <p className="meta count">{note.people.length} studying now <People ids={note.people} names={names} /></p>
+        <p className="meta count">{note.people.length} studying now <People ids={note.people} names={names} onPerson={id => onPerson?.(id, note)} /></p>
       )}
       {note.kind === 'saved' && <p className="meta">Built by {note.students} {note.students === 1 ? 'student' : 'students'}</p>}
 

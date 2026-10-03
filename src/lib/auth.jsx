@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from './supabase'
+import { sortTags } from './tags'
 
 const Ctx = createContext(null)
 export const useAuth = () => useContext(Ctx)
@@ -13,7 +14,7 @@ export function AuthProvider({ children }) {
 
   const loadProfile = async uid => {
     const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
-    setProfile(data)
+    setProfile(data && { ...data, classes: sortTags(data.classes), past_classes: sortTags(data.past_classes) })
   }
 
   useEffect(() => {

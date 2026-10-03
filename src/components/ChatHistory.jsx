@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function ChatHistory({ items, names, busy, canAsk, onAsk, onJump }) {
   const [text, setText] = useState('')
+  const list = useRef(null)
+
+  // Oldest at the top, newest at the bottom; keep the newest in view.
+  const ordered = [...items].reverse()
+  useEffect(() => {
+    if (list.current) list.current.scrollTop = list.current.scrollHeight
+  }, [items.length])
 
   function submit(e) {
     e.preventDefault()
@@ -12,9 +19,9 @@ export default function ChatHistory({ items, names, busy, canAsk, onAsk, onJump 
   return (
     <aside className="chat" aria-label="Chat history">
       <h2>Chat history <small>{items.length} {items.length === 1 ? 'question' : 'questions'}</small></h2>
-      <ol className="chat-list">
+      <ol className="chat-list" ref={list}>
         {items.length === 0 && <li className="chat-empty">Ask the AI about anything on the board. Circle it first to point at one spot.</li>}
-        {items.map(q => (
+        {ordered.map(q => (
           <li key={q.id}>
             <button className="q" onClick={() => q.anchor && onJump(q.anchor)}>
               <small>{names[q.asked_by] || 'Someone'}{q.page_number ? ` · p.${q.page_number}` : ''}</small>

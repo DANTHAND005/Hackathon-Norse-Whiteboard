@@ -39,7 +39,7 @@ export default function Whiteboard({ readOnly = false }) {
   const boardId = useRef(null)
 
   const [api, setApi] = useState(null)
-  const [pages, setPages] = useState([])     // excalidraw file ids, in slide order
+  const [pages, setPages] = useState([])     // ids of the pictures on the board, left to right
   const [pageIdx, setPageIdx] = useState(0)
   const [hasContent, setHasContent] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -118,7 +118,8 @@ export default function Whiteboard({ readOnly = false }) {
       const { data: rows } = await supabase.from('board_files').select('*').eq('board_id', board.id)
         .order('created_at').order('page_number')
       if (off || !rows?.length) return
-      const files = (await Promise.all(rows.map(async r => {
+      const unique = [...new Map(rows.map(r => [r.excalidraw_file_id, r])).values()]
+      const files = (await Promise.all(unique.map(async r => {
         const { data: blob } = await supabase.storage.from(BUCKET).download(r.storage_path)
         if (!blob) return null
         known.current.add(r.excalidraw_file_id)
@@ -126,7 +127,6 @@ export default function Whiteboard({ readOnly = false }) {
       }))).filter(Boolean)
       if (off) return
       api.addFiles(files)
-      setPages(files.map(f => f.id))
     })()
     return () => { off = true }
   }, [api, board?.id])
@@ -188,7 +188,7 @@ export default function Whiteboard({ readOnly = false }) {
     const all = api.getSceneElements().filter(el => !el.isDeleted)
     const mx = -st.scrollX + st.width / st.zoom.value / 2, my = -st.scrollY + st.height / st.zoom.value / 2
     const dist = el => Math.hypot(el.x + el.width / 2 - mx, el.y + el.height / 2 - my)
-    const pageEl = all.filter(el => pages.includes(el.fileId)).sort((a, b) => dist(a) - dist(b))[0] || null
+    const pageEl = all.filter(el => pages.includes(el.id)).sort((a, b) => dist(a) - dist(b))[0] || null
     const x0 = -st.scrollX, y0 = -st.scrollY, x1 = x0 + st.width / st.zoom.value, y1 = y0 + st.height / st.zoom.value
     const els = pageEl ? [pageEl]
       : all.filter(el => el.x < x1 && el.x + Math.abs(el.width) > x0 && el.y < y1 && el.y + Math.abs(el.height) > y0)
@@ -263,8 +263,8 @@ export default function Whiteboard({ readOnly = false }) {
     return { board_id: board.id, storage_path: path, ...row }
   }
 
-  function goToPage(i, list = pages) {
-    const el = api.getSceneElements().find(e => e.fileId === list[i])
+  function goToPage(i) {
+    const el = api.getSceneElements().find(e => e.id === pages[i])
     if (!el) return
     setPageIdx(i)
     api.scrollToContent(el, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true })
@@ -301,10 +301,9 @@ export default function Whiteboard({ readOnly = false }) {
       const { error } = await supabase.from('board_files').insert(rows)
       if (error) throw error
       api.addFiles(newFiles)
-      api.updateScene({ elements: [...api.getSceneElements(), ...convertToExcalidrawElements(skeletons)] })
-      const list = [...pages, ...newFiles.map(f => f.id)]
-      setPages(list)
-      goToPage(pages.length, list)
+      const added = convertToExcalidrawElements(skeletons)
+      api.updateScene({ elements: [...api.getSceneElements(), ...added] })
+      api.scrollToContent(added[0], { fitToViewport: true, viewportZoomFactor: 0.9, animate: true })
     } catch (err) {
       console.error(err)
       setNotice('Upload failed. Try again.')
@@ -315,11 +314,16 @@ export default function Whiteboard({ readOnly = false }) {
   // Images added with Excalidraw's own image tool get stored too, so they survive a refresh.
   async function persistNative(id, f) {
     try {
+      const { count } = await supabase.from('board_files').select('id', { count: 'exact', head: true })
+        .eq('board_id', board.id).eq('excalidraw_file_id', id)
+      if (count) return // already stored (uploaded here earlier, or by someone else)
       const blob = await (await fetch(f.dataURL)).blob()
       const row = await storeFile(blob, { file_type: 'image', page_number: null, excalidraw_file_id: id })
-      await supabase.from('board_files').insert(row)
-      setPages(p => [...p, id])
-    } catch (err) { console.error(err); known.current.delete(id) }
+      const { error } = await supabase.from('board_files').insert(row)
+      if (error) throw error
+    } catch (err) {
+      console.error(err) // the id stays in `known`, so one failure never turns into a retry loop
+    }
   }
 
   function onChange(elements, appState, files) {
@@ -327,6 +331,21 @@ export default function Whiteboard({ readOnly = false }) {
       if (!known.current.has(id)) { known.current.add(id); persistNative(id, f) }
     }
     setHasContent(elements.some(el => !el.isDeleted))
+
+    // Pages are the pictures actually on the board (so deleting one updates the count), and the
+    // page number follows whichever one is nearest the middle of the screen.
+    const imgs = elements.filter(el => el.type === 'image' && !el.isDeleted).sort((a, b) => a.x - b.x || a.y - b.y)
+    const ids = imgs.map(el => el.id)
+    setPages(prev => (prev.length === ids.length && prev.every((v, i) => v === ids[i]) ? prev : ids))
+    if (imgs.length) {
+      const cx = -appState.scrollX + appState.width / appState.zoom.value / 2
+      const cy = -appState.scrollY + appState.height / appState.zoom.value / 2
+      const near = imgs.reduce((best, el, i) => {
+        const d = Math.hypot(el.x + el.width / 2 - cx, el.y + el.height / 2 - cy)
+        return d < best.d ? { d, i } : best
+      }, { d: Infinity, i: 0 })
+      setPageIdx(near.i)
+    }
     if (readOnly) return
     lesson.onSceneChange(elements)
     const v = getSceneVersion(elements)

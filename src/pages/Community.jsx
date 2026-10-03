@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
+import { sortTags } from '../lib/tags'
 import StickyNote from '../components/StickyNote'
 import CreateNoteForm from '../components/CreateNoteForm'
+import Messages from '../components/Messages'
+import PersonPopup from '../components/PersonPopup'
+import { useMessages } from '../lib/useMessages'
 
 const HOUR = 3600e3
 
 export default function Community() {
   const { session, profile } = useAuth()
   const uid = session.user.id
-  const myTags = useMemo(() => [...(profile.classes || []), ...(profile.past_classes || [])], [profile])
+  const myTags = useMemo(() => sortTags([...(profile.classes || []), ...(profile.past_classes || [])]), [profile])
 
   const [data, setData] = useState({ meetups: [], live: [], saved: [] })
   const [names, setNames] = useState({})
   const [loading, setLoading] = useState(true)
   const [tag, setTag] = useState('All')
-  const [view, setView] = useState('all') // all | live | saved
+  const [view, setView] = useState('all') // all (live boards + meetups) | saved
   const [q, setQ] = useState('')
   const [form, setForm] = useState(null)  // null = closed, {} = new note, meetup note = editing
   const [boards, setBoards] = useState([])
@@ -23,6 +27,20 @@ export default function Community() {
   const [busy, setBusy] = useState(false)
   const [added, setAdded] = useState(null)
   const [toast, setToast] = useState('')
+  const [online, setOnline] = useState(navigator.onLine)
+  const inbox = useMessages(uid)
+  const [panel, setPanel] = useState(null)   // null = closed, { id } = open (id = chat to show, or null for the list)
+  const [person, setPerson] = useState(null) // { id, note } for the person popup
+
+  // Status icon: green when you're online and visible, red when offline or in ghost mode.
+  useEffect(() => {
+    const on = () => setOnline(true), off = () => setOnline(false)
+    window.addEventListener('online', on); window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  const status = !online ? ['off', "You're offline", 'Offline']
+    : profile.ghost_mode ? ['off', "Ghost mode: you're hidden from live counts", 'Ghost mode']
+    : ['on', "You're online and visible", 'Live']
 
   const load = useCallback(async () => {
     if (!myTags.length) return setLoading(false)
@@ -84,7 +102,7 @@ export default function Community() {
   }, [toast])
 
   const match = n => (tag === 'All' || n.tag === tag) && (!q.trim() || `${n.title} ${n.tag}`.toLowerCase().includes(q.trim().toLowerCase()))
-  const list = (view === 'saved' ? data.saved : view === 'live' ? data.live : [...data.live, ...data.meetups]).filter(match)
+  const list = (view === 'saved' ? data.saved : [...data.live, ...data.meetups]).filter(match)
 
   async function openForm(note = {}) {
     setFormErr('')
@@ -140,11 +158,13 @@ export default function Community() {
   const emptyTag = tag === 'All' ? myTags[0] : tag
 
   return (
+    <div className="cork">
     <main className="page community">
       <header className="comm-head">
         <h1>Find Your People</h1>
-        <button className="icon-btn" aria-label="Messages" title="Messages">
+        <button className="icon-btn msg-btn" aria-label={inbox.unread ? `Messages, ${inbox.unread} unread` : 'Messages'} title="Messages" onClick={() => setPanel({ id: null })}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z" /></svg>
+          {inbox.unread > 0 && <span className="count-badge">{inbox.unread > 9 ? '9+' : inbox.unread}</span>}
         </button>
       </header>
 
@@ -152,18 +172,24 @@ export default function Community() {
         <label className="select-pill">
           <span className="sr-only">Filter by class</span>
           <select value={tag} onChange={e => setTag(e.target.value)}>
-            <option>All</option>
+            <option value="All">Class tags</option>
             {myTags.map(t => <option key={t}>{t}</option>)}
           </select>
         </label>
         <button className="btn" onClick={() => openForm()}>Create</button>
         <div className="seg" role="group" aria-label="Show">
-          {[['all', 'All'], ['live', 'Live'], ['saved', 'Saved']].map(([id, label]) => (
+          {[['all', 'All'], ['saved', 'Saved']].map(([id, label]) => (
             <button key={id} aria-pressed={view === id} className={view === id ? 'on' : ''} onClick={() => setView(id)}>
-              {id === 'live' && <i className="dot" />}{label}
+              {label}
             </button>
           ))}
         </div>
+        <span className={`status ${status[0]}`} title={status[1]}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="2.5" fill="currentColor" /><path d="M7.8 7.8a6 6 0 000 8.4M16.2 7.8a6 6 0 010 8.4" />
+          </svg>
+          {status[2]}
+        </span>
         <label className="search">
           <span className="sr-only">Search</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
@@ -182,16 +208,22 @@ export default function Community() {
           {list.map(n => (
             <StickyNote key={`${n.kind}-${n.id}`} note={n} me={uid} names={names}
               tookIt={(profile.past_classes || []).includes(n.tag)} justAdded={added === n.id}
-              onJoin={join} onLeave={leave} onEdit={openForm} onRemove={remove} />
+              onJoin={join} onLeave={leave} onEdit={openForm} onRemove={remove} onPerson={(id, note) => setPerson({ id, note })} />
           ))}
         </div>
       )}
 
       {toast && <p className="toast" role="status">{toast}</p>}
+      {person && (
+        <PersonPopup personId={person.id} note={person.note} me={uid} myTags={myTags} onClose={() => setPerson(null)}
+          onMessage={async convId => { await inbox.reload(); setPerson(null); setPanel({ id: convId }) }} />
+      )}
+      {panel && <Messages hook={inbox} me={uid} openId={panel.id} onClose={() => setPanel(null)} />}
       {form && (
         <CreateNoteForm tags={profile.classes || []} boards={boards} initial={form} busy={busy} error={formErr}
           onSave={save} onClose={() => setForm(null)} />
       )}
     </main>
+    </div>
   )
 }
