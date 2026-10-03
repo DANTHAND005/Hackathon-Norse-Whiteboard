@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in · Norse Whiteboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Caveat:wght@700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --yellow: #FFC72C; --yellow-deep: #E5A800; --ink: #17181C; --muted: #5E6068; --line: #E9E6DC; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 32px 16px;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif; color: var(--ink);
+    background-color: #FFFFFF;
+    background-image: radial-gradient(#E4E0D2 1.2px, transparent 1.2px);
+    background-size: 24px 24px;
+    overflow-x: hidden;
+  }
+  /* big soft marker blobs in the background */
+  body::before, body::after {
+    content: ""; position: fixed; z-index: 0; border-radius: 50%; filter: blur(2px); opacity: .55;
+    background: var(--yellow);
+  }
+  body::before { width: 420px; height: 420px; top: -160px; left: -140px; }
+  body::after  { width: 300px; height: 300px; bottom: -120px; right: -90px; }
+
+  .doodle { position: fixed; z-index: 0; font-family: 'Caveat', cursive; font-size: 30px; color: #C9C4B4; user-select: none; }
+  .d1 { top: 12%; right: 10%; transform: rotate(8deg); }
+  .d2 { bottom: 14%; left: 8%; transform: rotate(-6deg); }
+  .d3 { top: 58%; right: 7%; transform: rotate(-4deg); }
+
+  .card {
+    position: relative; z-index: 1; width: 100%; max-width: 400px;
+    background: #FFFFFF; border: 2px solid var(--ink); border-radius: 24px;
+    padding: 40px 32px 28px; text-align: center;
+    box-shadow: 8px 8px 0 var(--yellow);
+    animation: rise .5s ease-out both;
+  }
+
+  .logo { width: 220px; max-width: 80%; height: auto; margin: -8px auto 14px; display: block; animation: pop .6s .15s ease-out both; }
+
+  h1 { margin: 0 0 6px; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 36px; line-height: 1.05; letter-spacing: -0.02em; }
+  .hl { position: relative; white-space: nowrap; }
+  .hl::before {
+    content: ""; position: absolute; z-index: -1; left: -4px; right: -4px; bottom: 2px; height: 46%;
+    background: var(--yellow); border-radius: 4px 10px 6px 12px; transform: rotate(-1.5deg);
+    transform-origin: left; animation: swipe .55s .45s ease-out both;
+  }
+  h1 span { position: relative; z-index: 1; }
+  .sub { margin: 0 0 28px; color: var(--muted); font-size: 15px; }
+
+  form { display: flex; flex-direction: column; gap: 16px; text-align: left; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input {
+    width: 100%; height: 50px; padding: 0 16px; border-radius: 12px;
+    border: 2px solid var(--line); background: #FCFBF7; font: 16px 'IBM Plex Sans', sans-serif; color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus { outline: none; border-color: var(--ink); box-shadow: 0 0 0 4px rgba(255,199,44,.55); }
+
+  .row { display: flex; justify-content: flex-end; margin-top: -6px; }
+  a { color: var(--ink); font-weight: 600; font-size: 14px; text-decoration-color: var(--yellow-deep); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  a:hover { background: rgba(255,199,44,.35); }
+
+  button {
+    margin-top: 6px; height: 54px; border: 2px solid var(--ink); border-radius: 14px; cursor: pointer;
+    background: var(--yellow); color: var(--ink); font: 700 17px 'IBM Plex Sans', sans-serif;
+    box-shadow: 4px 4px 0 var(--ink); transition: transform .1s, box-shadow .1s;
+  }
+  button:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+  button:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+
+  .msg { margin: 0; min-height: 20px; font-size: 14px; text-align: center; }
+  .msg.err { color: #B42318; }
+  .msg.ok { color: #14633F; }
+  button:disabled { opacity: .6; cursor: wait; }
+  .foot { margin: 22px 0 0; font-size: 14px; color: var(--muted); }
+
+  @keyframes rise  { from { opacity: 0; transform: translateY(16px); } }
+  @keyframes pop   { from { opacity: 0; transform: scale(.6) rotate(-12deg); } }
+  @keyframes swipe { from { transform: rotate(-1.5deg) scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) { *, *::before { animation: none !important; } }
+  @media (max-width: 480px) { .doodle { display: none; } .card { padding: 32px 20px 24px; } }
+</style>
+</head>
+<body>
+  <span class="doodle d1" aria-hidden="true">f(x) = ?</span>
+  <span class="doodle d2" aria-hidden="true">obs → update()</span>
+  <span class="doodle d3" aria-hidden="true">✓ quiz 4</span>
+
+  <main class="card">
+    <img class="logo" src="images/nku-norse.png" alt="NKU Norse logo">
+
+    <h1><span>Norse</span> <span class="hl"><span>Whiteboard</span></span></h1>
+    <p class="sub">Study together. Ask the board.</p>
+
+    <form id="login">
+      <div>
+        <label for="user">NKU email</label>
+        <input id="user" name="user" type="email" autocomplete="username" placeholder="you@nku.edu" required>
+      </div>
+      <div>
+        <label for="pass">Password</label>
+        <input id="pass" name="pass" type="password" autocomplete="current-password" placeholder="••••••••" minlength="8" required>
+      </div>
+      <div class="row"><a href="#" id="forgot">Forgot password?</a></div>
+      <button type="submit" id="submit">Sign in</button>
+      <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    </form>
+
+    <p class="foot"><span id="switch-text">New here?</span> <a href="#" id="switch">Create an account</a></p>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const $ = id => document.getElementById(id);
+    const APP = 'whiteboard.html'; // where signed-in users go
+    let signingUp = false;
+
+    const say = (text, ok) => { $('msg').textContent = text; $('msg').className = 'msg ' + (ok ? 'ok' : 'err'); };
+    const isNku = email => email.toLowerCase().endsWith('@nku.edu');
+
+    // Already signed in? Skip the form.
+    db.auth.getSession().then(({ data }) => { if (data.session) location.href = APP; });
+
+    $('switch').onclick = e => {
+      e.preventDefault();
+      signingUp = !signingUp;
+      $('submit').textContent = signingUp ? 'Create account' : 'Sign in';
+      $('switch-text').textContent = signingUp ? 'Have an account?' : 'New here?';
+      $('switch').textContent = signingUp ? 'Sign in' : 'Create an account';
+      $('pass').autocomplete = signingUp ? 'new-password' : 'current-password';
+      say('');
+    };
+
+    $('login').onsubmit = async e => {
+      e.preventDefault();
+      const email = $('user').value.trim(), password = $('pass').value;
+      if (!isNku(email)) return say('Use your @nku.edu email.');
+      $('submit').disabled = true;
+      const { error } = signingUp
+        ? await db.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + location.pathname } })
+        : await db.auth.signInWithPassword({ email, password });
+      $('submit').disabled = false;
+      if (error) return say(error.message);
+      if (signingUp) say('Check your NKU email to confirm your account.', true);
+      else location.href = APP;
+    };
+
+    $('forgot').onclick = async e => {
+      e.preventDefault();
+      const email = $('user').value.trim();
+      if (!isNku(email)) return say('Type your @nku.edu email above first.');
+      const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: new URL('reset.html', location.href).href });
+      error ? say(error.message) : say('Reset link sent. Check your email.', true);
+    };
+  </script>
+</body>
+</html>

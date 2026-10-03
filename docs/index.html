@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Norse Whiteboard</title>
+<style>
+  body { margin: 0; background: #F6F4EE; color: #1B2A41; font: 16px/1.6 system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 48px 16px 80px; }
+  h1 { font-size: 44px; margin: 0 0 8px; }
+  h2 { margin-top: 56px; }
+  .lead { font-size: 19px; color: #3A4556; max-width: 680px; }
+  ul { padding-left: 20px; }
+  img { width: 100%; height: auto; border-radius: 12px; border: 1px solid #E2DED2; background: #fff; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row figure { margin: 0; flex: 1 1 300px; }
+  .phone { max-width: 390px; }
+  figcaption { font-size: 14px; color: #5B6474; margin-top: 6px; }
+  .tag { display: inline-block; background: #F2C230; padding: 2px 10px; border-radius: 8px; font-weight: 600; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <span class="tag">Hackathon · #community</span>
+  <h1>Norse Whiteboard</h1>
+  <p class="lead">An AI whiteboard for NKU students. Upload your notes, slides or PDFs, draw on them with classmates, and ask the AI tutor about anything you circle.</p>
+
+  <h2>How it works</h2>
+  <ul>
+    <li><strong>Whiteboard:</strong> Upload a file, mark it up, and hit Ask AI (or circle something) to get an explanation right on the board. Every question is saved in the chat history.</li>
+    <li><strong>Community:</strong> Tag boards with your classes (like ASE420). Find live boards to jump into, or set up an in-person meetup with a board attached.</li>
+    <li><strong>Saved boards:</strong> When a session ends, the board stays on the class page for the next group to study from.</li>
+  </ul>
+
+  <h2>Mockups</h2>
+  <figure style="margin:0">
+    <img src="images/mockup-whiteboard.png" alt="Whiteboard screen with chat history, tools, and an AI answer on the board">
+    <figcaption>Whiteboard</figcaption>
+  </figure>
+  <figure style="margin:24px 0 0" class="phone">
+    <img src="images/mockup-community.png" alt="Find your people screen with live boards and meetups">
+    <figcaption>Find your people</figcaption>
+  </figure>
+
+  <h2>Original sketches</h2>
+  <div class="row">
+    <figure><img src="images/sketch-whiteboard.jpg" alt="Hand-drawn sketch of the whiteboard page"><figcaption>Whiteboard page</figcaption></figure>
+    <figure><img src="images/sketch-screens.jpg" alt="Hand-drawn sketch of the whiteboard and community screens"><figcaption>Whiteboard + community</figcaption></figure>
+  </div>
+
+  <h2>Planned stack</h2>
+  <ul>
+    <li>Board: Excalidraw</li>
+    <li>Login, file storage, live sync: Supabase</li>
+    <li>AI: Gemini (free tier)</li>
+  </ul>
+</main>
+</body>
+</html>

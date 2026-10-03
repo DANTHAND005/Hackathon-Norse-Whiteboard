@@ -515,10 +515,6 @@ All functions require a signed-in user (verify the Supabase JWT). Use Gemini JSO
 5. Community: live board for ASE420, a meetup at Steely, "You took this, help out" label; Join; message someone.
 6. Close: every session leaves a board behind for the next group.
 
-
-
-"Live Study Room panel uses LiveKit, audio only, max 6, host controls room, token minted by an Edge Function."
-
 ---
 
 ## 15. Stretch features (do NOT build now; keep the design open for them)
