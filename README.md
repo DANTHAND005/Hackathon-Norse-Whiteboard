@@ -13,18 +13,40 @@ An AI study whiteboard for NKU students. Upload notes, slides or PDFs, draw on t
 
 ## Documentation
 
+- [**Setup guide**: run it, or build the whole backend from scratch](docs/SETUP.md)
 - [Architecture, data flow and live updates (with UML diagrams)](docs/ARCHITECTURE.md)
 - [Build spec](CLAUDE.md)
 
-## Run it on your computer
+## Quick start
 
-1. Install Node.js, then run `npm install` in this folder.
-2. Copy `.env.example` to `.env` and fill in the two values (ask a teammate for the public key):
+1. Install Node.js and Git, then:
+   ```
+   git clone https://github.com/DANTHAND005/Hackathon-Norse-Whiteboard.git
+   cd Hackathon-Norse-Whiteboard
+   npm install
+   ```
+2. Create your private `.env` file from the template:
+   - Windows PowerShell: `Copy-Item .env.example .env`
+   - Mac or Linux: `cp .env.example .env`
+3. Open `.env` and fill in both lines (ask a teammate privately for the key):
    ```
    VITE_SUPABASE_URL=https://hiuzbgdqurtatffvsdui.supabase.co
    VITE_SUPABASE_ANON_KEY=<publishable key>
    ```
-3. Run `npm run dev` and open http://localhost:5173/norse-whiteboard/#/login
+4. `npm run dev`, then open http://localhost:5173/norse-whiteboard/#/login
+
+Getting "Failed to fetch" on sign in? Your `.env` is missing (it is never committed). Create it, then stop and restart `npm run dev`.
+
+## Where the keys go
+
+| Key | Goes in | Public? |
+|---|---|---|
+| Supabase URL and **publishable** key | `.env` on your computer, and the two GitHub Actions secrets for the live site | yes, safe (database rules protect the data) |
+| **Gemini API key** | Supabase Edge Function secret only (`npx supabase secrets set GEMINI_API_KEY=...`) | **no, never in code, `.env` or GitHub** |
+| Canvas address | Supabase Edge Function secret `CANVAS_BASE_URL` | keep with the secrets |
+| A student's Canvas token | typed into the page once, never stored | never share |
+
+The `.env` file is git-ignored, so keys never reach GitHub. Never use Supabase's `service_role` or secret key anywhere. Full details, backend setup from nothing (database, sign-in settings, server functions, deploy) and troubleshooting are in the [setup guide](docs/SETUP.md).
 
 ## Project layout
 
