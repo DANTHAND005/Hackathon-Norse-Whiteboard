@@ -13,8 +13,11 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate()
 
   const loadProfile = async uid => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', uid).single()
-    setProfile(data && { ...data, classes: sortTags(data.classes), past_classes: sortTags(data.past_classes) })
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
+    if (error) return // a network hiccup is not a reason to log anyone out
+    // Signed in but no profile row: the account was deleted (here or elsewhere). The old login is useless, so go to Sign in.
+    if (!data) { await supabase.auth.signOut(); return }
+    setProfile({ ...data, classes: sortTags(data.classes), past_classes: sortTags(data.past_classes) })
   }
 
   useEffect(() => {

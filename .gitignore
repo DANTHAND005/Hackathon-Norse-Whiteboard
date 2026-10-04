@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.env.local
+
+# reference and scratch material that should not be published
+docs/images/AI-Study-Guide-Login/
+docs/images/__MACOSX/
+docs/images/live-room live kit.html
+designs/
+*.url
+supabase/.temp/

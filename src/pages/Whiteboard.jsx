@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Excalidraw, getSceneVersion, convertToExcalidrawElements, exportToBlob } from '@excalidraw/excalidraw'
+import { Excalidraw, getSceneVersion, convertToExcalidrawElements, exportToBlob, reconcileElements, restoreElements, CaptureUpdateAction } from '@excalidraw/excalidraw'
 import '@excalidraw/excalidraw/index.css'
 import { supabase, invokeFn } from '../lib/supabase'
 import { useAuth } from '../lib/auth'
@@ -19,6 +19,8 @@ const SLIDE_W = 900   // uploaded pages are laid out left to right like slides
 const SLIDE_GAP = 60
 const MAX_BYTES = 25 * 1024 * 1024
 const BUCKET = 'board-files'
+const SYNC_MS = 80          // how often local changes are broadcast while someone is drawing
+const key = el => `${el.version}:${el.versionNonce}` // changes whenever an element changes
 
 // readOnly = a saved board opened from Community: view it, or copy it to your own boards.
 export default function Whiteboard({ readOnly = false }) {
@@ -63,16 +65,72 @@ export default function Whiteboard({ readOnly = false }) {
     if (!board) return
     const ch = supabase.channel(`board:${board.id}`)
       .on('broadcast', { event: 'lesson' }, ({ payload }) => lessonRef.current.onRemote(payload))
-      .subscribe()
+      .on('broadcast', { event: 'scene' }, ({ payload }) => syncRef.current.applyRemote(payload.elements))
+      .subscribe(status => { if (status === 'SUBSCRIBED') syncRef.current.resync() })
     chan.current = ch
     return () => { chan.current = null; supabase.removeChannel(ch) }
   }, [board?.id])
+
+  // ───── live drawing: broadcast what changed, merge what others changed (higher version wins) ─────
+  const sent = useRef(new Map())      // element id -> key we last sent or received, so nothing is echoed back
+  const outbox = useRef(new Map())
+  const sendTimer = useRef(null)
+  const fetching = useRef(new Set())  // image files being downloaded
+
+  function flushOutbox() {
+    sendTimer.current = null
+    const els = [...outbox.current.values()]
+    outbox.current.clear()
+    for (let i = 0; i < els.length; i += 100) {
+      chan.current?.send({ type: 'broadcast', event: 'scene', payload: { elements: els.slice(i, i + 100) } })
+    }
+  }
+
+  // Images drawn by someone else arrive as elements only; fetch their pictures from Storage.
+  async function loadMissingFiles(els, attempt = 0) {
+    const a = apiRef.current
+    if (!a) return
+    const have = a.getFiles()
+    const ids = [...new Set(els.filter(e => e.type === 'image' && e.fileId && !have[e.fileId] && !fetching.current.has(e.fileId)).map(e => e.fileId))]
+    if (!ids.length) return
+    ids.forEach(id => fetching.current.add(id))
+    const { data: rows } = await supabase.from('board_files').select('*').eq('board_id', boardId.current).in('excalidraw_file_id', ids)
+    const files = (await Promise.all((rows || []).map(async r => {
+      const { data: blob } = await supabase.storage.from(BUCKET).download(r.storage_path)
+      if (!blob) return null
+      known.current.add(r.excalidraw_file_id)
+      return { id: r.excalidraw_file_id, mimeType: 'image/png', dataURL: await toDataURL(blob), created: Date.parse(r.created_at) }
+    }))).filter(Boolean)
+    if (files.length) apiRef.current?.addFiles(files)
+    ids.forEach(id => fetching.current.delete(id))
+    // the uploader may still be saving the file record: try again shortly
+    if (files.length < ids.length && attempt < 3) setTimeout(() => loadMissingFiles(els, attempt + 1), 3000)
+  }
+
+  function applyRemote(remote) {
+    const a = apiRef.current
+    if (!a || readOnly || !Array.isArray(remote)) return
+    const merged = reconcileElements(a.getSceneElementsIncludingDeleted(), restoreElements(remote, null), a.getAppState())
+    remote.forEach(e => sent.current.set(e.id, key(e)))
+    a.updateScene({ elements: merged, captureUpdate: CaptureUpdateAction.NEVER })
+    loadMissingFiles(remote)
+  }
+
+  // Catch up from the saved copy (after a tab sleeps, or when the channel connects).
+  async function resync() {
+    if (!boardId.current || readOnly) return
+    const { data } = await supabase.from('boards').select('scene').eq('id', boardId.current).maybeSingle()
+    if (data?.scene?.elements) applyRemote(data.scene.elements)
+  }
+
+  const apiRef = useRef(null); apiRef.current = api
+  const syncRef = useRef({}); syncRef.current = { applyRemote, resync }
 
   const remember = id => supabase.from('profiles').update({ last_board_id: id }).eq('id', uid).then(refreshProfile)
 
   async function createBoard() {
     const { data, error } = await supabase.from('boards').insert({ owner: uid }).select().single()
-    if (error) return setError('Could not create a board.')
+    if (error) { console.error(error); return setError(`Could not create a board (${error.message}).`) }
     navigate(`/board/${data.id}`)
   }
 
@@ -95,6 +153,8 @@ export default function Whiteboard({ readOnly = false }) {
       if (!data) return routeId ? setError("That board doesn't exist or is private.") : createBoard()
 
       lastVersion.current = getSceneVersion(data.scene?.elements || [])
+      sent.current = new Map((data.scene?.elements || []).map(e => [e.id, key(e)]))
+      outbox.current.clear()
       boardId.current = data.id
       setBoard(data)
       if (!readOnly && profile?.last_board_id !== data.id) remember(data.id)
@@ -348,8 +408,14 @@ export default function Whiteboard({ readOnly = false }) {
     }
     if (readOnly) return
     lesson.onSceneChange(elements)
+    // Only elements this user changed are sent and saved; merged-in changes from others are already in `sent`.
+    const changed = elements.filter(el => sent.current.get(el.id) !== key(el))
+    if (!changed.length) return // Excalidraw also fires onChange for scrolling and selection
+    changed.forEach(el => { sent.current.set(el.id, key(el)); outbox.current.set(el.id, el) })
+    if (!sendTimer.current) sendTimer.current = setTimeout(flushOutbox, SYNC_MS)
+
     const v = getSceneVersion(elements)
-    if (v === lastVersion.current) return // Excalidraw also fires onChange for scrolling and selection
+    if (v === lastVersion.current) return
     lastVersion.current = v
     pending.current = { elements, appState: { viewBackgroundColor: appState.viewBackgroundColor } }
     clearTimeout(timer.current)
@@ -358,7 +424,7 @@ export default function Whiteboard({ readOnly = false }) {
 
   // Save whatever is pending if the tab closes.
   useEffect(() => {
-    const hide = () => document.visibilityState === 'hidden' && flush()
+    const hide = () => (document.visibilityState === 'hidden' ? flush() : syncRef.current.resync())
     document.addEventListener('visibilitychange', hide)
     return () => document.removeEventListener('visibilitychange', hide)
   }, [])

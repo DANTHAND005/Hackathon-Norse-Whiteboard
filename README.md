@@ -1,18 +1,54 @@
 # Norse Whiteboard
 
-An AI whiteboard for NKU students. Upload your notes, slides or PDFs, draw on them with classmates, and ask the AI tutor about anything you circle.
+An AI study whiteboard for NKU students. Upload notes, slides or PDFs, draw on them together, and ask the AI tutor about anything you circle. Find classmates through sticky notes on a community cork board, meet up, and message each other.
 
-**Live page:** https://thand123.github.io/norse-whiteboard/
+**Live site:** https://danthand005.github.io/Hackathon-Norse-Whiteboard/#/login
 
-## How it works
+## What it does
 
-- **Whiteboard:** Upload a file, mark it up, and hit **Ask AI** (or circle something) to get an explanation right on the board. Every question is saved in the chat history.
-- **Community:** Tag boards with your classes (like ASE420). Find live boards to jump into, or set up an in-person meetup (Steely, Student Union) with a board attached.
-- **Saved boards:** When a session ends, the board stays on the class page for the next group to study from.
+- **Whiteboard:** Excalidraw canvas with uploads (images and PDFs), live drawing with other people, Ask AI on a selection, and "Teach me this page" lessons that draw and speak.
+- **Community:** a cork board of sticky notes (meetups, live boards, saved boards) filtered by your classes. Create, join and leave, with live counts.
+- **Messages:** one-on-one chats and meetup group chats, with Block and Report.
+- **Profile and Settings:** display name, which tags others can see, ghost mode, tutor voice, Canvas re-import, password, blocked people.
+
+## Documentation
+
+- [Architecture, data flow and live updates (with UML diagrams)](docs/ARCHITECTURE.md)
+- [Build spec](CLAUDE.md)
+
+## Run it on your computer
+
+1. Install Node.js, then run `npm install` in this folder.
+2. Copy `.env.example` to `.env` and fill in the two values (ask a teammate for the public key):
+   ```
+   VITE_SUPABASE_URL=https://hiuzbgdqurtatffvsdui.supabase.co
+   VITE_SUPABASE_ANON_KEY=<publishable key>
+   ```
+3. Run `npm run dev` and open http://localhost:5173/norse-whiteboard/#/login
+
+## Project layout
+
+```
+src/
+  pages/        Login, Reset, Onboarding, Whiteboard, Community, Profile, Settings
+  components/   StickyNote, CreateNoteForm, Messages, ChatView, PersonPopup, ChatHistory, LessonControls
+  lib/          supabase client, auth, useLesson, useMessages, voice, files, tags
+supabase/
+  migrations/   database schema, rules, triggers (run in order)
+  functions/    Edge Functions: canvas-import, ai-ask, ai-lesson, ai-redirect
+docs/
+  ARCHITECTURE.md   how everything fits together
+  images/           mockups and sketches
+.github/workflows/  deploy to GitHub Pages
+```
+
+## Stack
+
+React + Vite, Excalidraw, pdf.js, Supabase (Postgres, Auth, Storage, Realtime, Edge Functions), Google Gemini, Web Speech API, GitHub Pages.
 
 ## Mockups
 
-![Whiteboard screen](docs/images/mockup-whiteboard.png)
+![Whiteboard screen](docs/images/mockup-whiteboardv2.png)
 
 ![Find your people screen](docs/images/mockup-community.png)
 
@@ -20,10 +56,6 @@ An AI whiteboard for NKU students. Upload your notes, slides or PDFs, draw on th
 
 ![Whiteboard sketch](docs/images/sketch-whiteboard.jpg)
 
-![Screens sketch](docs/images/sketch-screens.jpg)
+![Community sketch](docs/images/sketch-community.jpg)
 
-## Planned stack
-
-- Board: Excalidraw
-- Login, file storage, live sync: Supabase
-- AI: Gemini (free tier)
+![Profile and settings sketch](docs/images/sketch-profile-settings.jpg)

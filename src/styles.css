@@ -534,3 +534,7 @@ button.avatar:hover { transform: translateY(-2px); }
 .person .btn.light { background: #fff; }
 
 @media (max-width: 640px) { .msg-panel { width: 100%; box-shadow: none; } }
+
+/* messages: the ⋮ sits next to the name, so its menu opens to the right of it */
+.msg-panel .note-menu .kebab { width: 32px; height: 32px; font-size: 20px; line-height: 1; }
+.msg-panel .note-menu .pop.right { left: 0; right: auto; min-width: 150px; }

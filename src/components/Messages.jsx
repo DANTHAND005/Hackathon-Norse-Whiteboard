@@ -67,9 +67,9 @@ export default function Messages({ hook, me, openId, onClose }) {
         <header className="msg-head">
           {conv && <button className="icon-btn" onClick={() => setCurrent(null)} aria-label="Back to all messages">‹</button>}
           <h2>{conv ? titleOf(conv) : 'Messages'}</h2>
+          {conv && renderMenu(conv)}
           {conv && conv.type === 'dm' && conv.met_title && <NoteTag c={conv} />}
           <span className="grow" />
-          {conv && renderMenu(conv)}
           <button className="icon-btn" onClick={onClose} aria-label="Close messages">×</button>
         </header>
 
@@ -87,6 +87,7 @@ export default function Messages({ hook, me, openId, onClose }) {
                   <div className="conv-main">
                     <div className="conv-top">
                       <b>{titleOf(c)}</b>
+                      {renderMenu(c)}
                       {c.type === 'meetup' && <span className="mini-badge">Meetup chat</span>}
                       {c.type === 'dm' && c.met_title && <NoteTag c={c} />}
                     </div>
@@ -98,7 +99,6 @@ export default function Messages({ hook, me, openId, onClose }) {
                     {c.last && <time>{when(c.last.created_at)}</time>}
                     {c.unread > 0 && <span className="unread-dot" aria-label={`${c.unread} unread`} />}
                   </div>
-                  {renderMenu(c)}
                 </div>
               </li>
             ))}
